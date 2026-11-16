@@ -2,3 +2,5 @@ yt-dlp
 google-genai
 requests
 moviepy
+edge-tts
+pillow
