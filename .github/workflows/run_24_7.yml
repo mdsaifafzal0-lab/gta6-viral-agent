@@ -20,11 +20,11 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install FFmpeg, Fonts and NodeJS (For YouTube Bypass)
+      - name: Install Pro Video & Audio Engine
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg fonts-dejavu-core fonts-liberation nodejs
-          pip install -U yt-dlp google-genai requests moviepy pillow
+          pip install -U yt-dlp pytubefix faster-whisper google-genai requests pillow
 
       - name: Run GTA 6 Viral Agent
         env:
