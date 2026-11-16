@@ -42,17 +42,6 @@ def send_telegram_video(chat_id, video_path, caption):
         )
         return r.status_code == 200
 
-def send_telegram_photo(chat_id, photo_path, caption):
-    if not chat_id or not os.path.exists(photo_path):
-        return
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendPhoto"
-    with open(photo_path, "rb") as img:
-        requests.post(
-            url,
-            data={"chat_id": chat_id, "caption": caption[:1000]},
-            files={"photo": img}
-        )
-
 def check_commands(state):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates"
     params = {"offset": state.get("last_update_id", 0) + 1}
@@ -75,31 +64,30 @@ def check_commands(state):
 
         if text.startswith("/start"):
             state["active"] = True
-            send_telegram(state["chat_id"], "🇮🇳 GTA 6 Hindi Viral Agent Active Hai!\n\nCommands:\n/target 15 - Daily Hindi Reels/Shorts limit set karein (Max 20)\n/status - Live report dekhein\n/reset - Aaj ka counter 0 karein\n/stop - Engine ko pause karein")
+            send_telegram(state["chat_id"], "🔥 GTA 6 Pro Editor Agent Active Hai!\n\nCommands:\n/target 15 - Daily Reels limit set karein (Max 20)\n/status - Live report dekhein\n/reset - Counter 0 karein\n/stop - Pause karein")
         elif text.startswith("/target"):
             parts = text.split()
             if len(parts) > 1 and parts[1].isdigit():
                 limit = min(int(parts[1]), 20)
                 state["daily_target"] = limit
-                send_telegram(state["chat_id"], f"🎯 Target Updated: Ab main roz {limit} Hindi Viral Shorts/Reels edit karke dunga!")
+                send_telegram(state["chat_id"], f"🎯 Target Set: Roz {limit} Pro Edited Shorts/Reels!")
         elif text.startswith("/status"):
-            send_telegram(state["chat_id"], f"📊 GTA 6 Hindi Agent Report:\n• Active: {state['active']}\n• Daily Limit: {state['daily_target']}\n• Ready Today: {state['uploaded_today']}\n• Total Clips Processed: {len(state['processed_videos'])}")
+            send_telegram(state["chat_id"], f"📊 Live Status:\nActive: {state['active']}\nDaily Limit: {state['daily_target']}\nCompleted Today: {state['uploaded_today']}\nTotal Edited: {len(state['processed_videos'])}")
         elif text.startswith("/reset"):
             state["uploaded_today"] = 0
-            send_telegram(state["chat_id"], "🔄 Aaj ka counter 0 ho gaya hai!")
+            send_telegram(state["chat_id"], "🔄 Counter 0 ho gaya hai!")
         elif text.startswith("/stop"):
             state["active"] = False
-            send_telegram(state["chat_id"], "⏸ Engine Paused. Wapas chalu karne ke liye /start bhejein.")
+            send_telegram(state["chat_id"], "⏸ Paused.")
 
     return state
 
-def find_hindi_gta6_videos():
-    # Specifically target Indian / Hindi GTA 6 shorts & creators
+def find_viral_gta6_shorts():
+    # Search actual high-energy GTA 6 edits, comparisons & Indian streamer reactions
     queries = [
-        "ytsearch10:GTA 6 Hindi shorts viral",
-        "ytsearch10:GTA 6 India reaction Hindi gameplay",
-        "ytsearch10:GTA 6 hidden details in Hindi",
-        "ytsearch10:Techno Gamerz GTA 6 LazyAssassin Hindi"
+        "ytsearch12:GTA 6 vs GTA 5 edit #shorts",
+        "ytsearch12:GTA 6 crazy details edit #shorts",
+        "ytsearch12:GTA 6 Hindi reaction Techno Gamerz BeastBoyShub #shorts"
     ]
     videos = []
     for q in queries:
@@ -108,124 +96,176 @@ def find_hindi_gta6_videos():
         for line in res.stdout.strip().split("\n"):
             if line:
                 try:
-                    videos.append(json.loads(line))
+                    v = json.loads(line)
+                    # Prefer short punchy videos under 90 seconds
+                    dur = v.get("duration") or 30
+                    if dur <= 120:
+                        videos.append(v)
                 except:
                     pass
     return videos
 
-def generate_hindi_script_and_seo(title, url):
-    prompt = f"""
-    Trending GTA 6 video for Indian audience: "{title}" ({url})
-    Write response strictly in Hinglish (Hindi written in English alphabet) for Indian YouTube Shorts & Instagram Reels:
-    1. HINDI_VOICEOVER: Write an exciting 20-second Hindi commentary script (in Devanagari Hindi) that a gamer speaks over this GTA 6 clip.
-    2. HOOK_TEXT: Short 4-word shocking Hindi/Hinglish text to show on top of video.
-    3. VIRAL_TITLE: Best Hindi/Hinglish title under 60 chars with emojis.
-    4. CAPTION_AND_TAGS: Hindi caption + Top 12 Indian Gaming Hashtags (#GTA6Hindi #GTA6India #IndianGaming #Shorts etc.)
-    5. COMPETITOR_TECHNIQUE: Why this topic is going viral in India.
-    """
-    ai_text = None
-    try:
-        client = genai.Client(api_key=GEMINI_KEY)
-        response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
-        if response and response.text:
-            ai_text = response.text
-    except Exception:
-        pass
+def download_real_video(vid_id, url, out_path="raw_clip.mp4"):
+    if os.path.exists(out_path):
+        os.remove(out_path)
 
-    if not ai_text:
+    # Strategy 1: yt-dlp with iOS / TV Embedded client (Bypasses GitHub IP blocks!)
+    clients = ["ios", "tv_embedded", "mweb", "android_vr"]
+    for c in clients:
+        cmd = [
+            "yt-dlp", url,
+            "--extractor-args", f"youtube:player_client={c}",
+            "-f", "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+            "--merge-output-format", "mp4",
+            "--max-filesize", "40M",
+            "-o", out_path
+        ]
+        subprocess.run(cmd, capture_output=True, text=True, timeout=45)
+        if os.path.exists(out_path) and os.path.getsize(out_path) > 150000:
+            return True
+
+    # Strategy 2: Piped / Invidious Public API Mirror Fallback (Guaranteed real video stream)
+    mirrors = [
+        f"https://pipedapi.kavin.rocks/streams/{vid_id}",
+        f"https://pipedapi.tokhmi.xyz/streams/{vid_id}"
+    ]
+    for m in mirrors:
         try:
-            encoded = urllib.parse.quote(prompt)
-            r = requests.get(f"https://text.pollinations.ai/{encoded}", timeout=25)
-            if r.status_code == 200 and len(r.text) > 40:
-                ai_text = r.text
-        except Exception:
+            r = requests.get(m, timeout=15).json()
+            streams = r.get("videoStreams", [])
+            for s in streams:
+                if s.get("format") == "MPEG_4" and not s.get("videoOnly", False):
+                    v_data = requests.get(s["url"], timeout=25).content
+                    if len(v_data) > 150000:
+                        with open(out_path, "wb") as f:
+                            f.write(v_data)
+                        return True
+        except:
             pass
 
-    voice_script = "भाई लोग! जीटीए सिक्स का ये खतरनाक सीन देखो! रॉकस्टार गेम्स ने इसमें ऐसी रियलिस्टिक डिटेल डाली है जो किसी ने नोटिस नहीं की! वीडियो को आखिर तक देखो और कमेंट में बताओ आपको कैसा लगा!"
+    return False
 
-    if not ai_text:
-        clean_t = title[:40]
-        ai_text = (
-            f"🇮🇳 HINDI VIRAL SHORT & REEL PACKAGE:\n\n"
-            f"📌 Viral Hindi Title: भाई GTA 6 में ये क्या डाल दिया?! 😱🔥 | {clean_t} #GTA6Hindi\n\n"
-            f"🪝 3-Sec On-Screen Hook: 'GTA 6 का सबसे बड़ा राज़! 🤯'\n\n"
-            f"🎙 AI Hindi Voiceover Added:\n'{voice_script}'\n\n"
-            f"📝 Copy-Paste Hindi Caption:\n"
-            f"भाई लोग GTA 6 की ये डिटेल देखकर होश उड़ जाएंगे! 😱 क्या आपने ये नोटिस किया था? कमेंट में जरूर बताओ! 👇🔥\n\n"
-            f"🏷 Indian Viral Hashtags:\n"
-            f"#GTA6 #GTA6Hindi #GTA6India #IndianGaming #TechnoGamerz #GamingShorts #HindiGaming #GTAVI #ViralReelsIndia #YouTubeShortsIndia"
+def create_neon_subtitles(hook_top, label_1, label_2, ass_file="captions.ass"):
+    # Creates glowing neon green/yellow dynamic captions exactly like OPiKAT / Hormozi edits
+    ass_content = f"""[Script Info]
+ScriptType: v4.00+
+PlayResX: 720
+PlayResY: 1280
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: TopHook,Liberation Sans,52,&H0000FFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,4,2,8,30,30,90,1
+Style: NeonCenter,DejaVu Sans,68,&H0055FF00,&H000000FF,&H00003300,&H80000000,-1,0,0,0,100,100,2,0,1,5,4,2,30,30,360,1
+Style: SubWhite,Liberation Sans,46,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,4,2,2,30,30,295,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:03.50,TopHook,,0,0,0,,{{\\fad(150,150)}}{hook_top}
+Dialogue: 0,0:00:00.20,0:00:07.50,NeonCenter,,0,0,0,,{{\\fad(200,200)}}{label_1}
+Dialogue: 0,0:00:00.20,0:00:07.50,SubWhite,,0,0,0,,WAIT FOR THE END 💀🔥
+Dialogue: 0,0:00:07.60,0:00:22.00,NeonCenter,,0,0,0,,{{\\fad(200,200)}}{label_2}
+Dialogue: 0,0:00:07.60,0:00:22.00,SubWhite,,0,0,0,,NEXT LEVEL REALISM 😱
+"""
+    with open(ass_file, "w", encoding="utf-8") as f:
+        f.write(ass_content)
+    return ass_file
+
+def edit_pro_short(raw_file, hook_top, label_1, label_2, output_file="pro_viral_short.mp4"):
+    if os.path.exists(output_file):
+        os.remove(output_file)
+
+    ass_file = create_neon_subtitles(hook_top, label_1, label_2)
+
+    # Pro Editing Pipeline:
+    # 1. Top 72% (720x920): Crisp HD Gameplay with Unsharp Mask + High Contrast/Saturation (like video_2.mp4)
+    # 2. Bottom 28% (720x360): Zoomed Action/Streamer Cam Split-Screen with glowing divider
+    # 3. Burned-in Neon Colored Captions (captions.ass)
+    # 4. Original Audio + Bass Boost + 1.04x Anti-Copyright Pitch/Speed
+    filter_complex = (
+        "[0:v]setpts=PTS/1.04,split=2[vtop][vbot];"
+        "[vtop]crop=ih*9/16:ih,scale=720:920:flags=lanczos,"
+        "unsharp=5:5:1.2:5:5:0.0,eq=contrast=1.14:saturation=1.28:brightness=0.02[top_ready];"
+        "[vbot]crop=iw*0.6:ih*0.4,scale=720:360:flags=lanczos,"
+        "eq=contrast=1.18:saturation=1.2[bot_ready];"
+        "[top_ready][bot_ready]vstack=inputs=2,"
+        "drawbox=x=0:y=916:w=720:h=8:color=#00FF55@1:t=fill,"
+        f"ass={ass_file}[vout];"
+        "[0:a]atempo=1.04,aecho=0.8:0.88:20:0.15,bass=g=5:f=110:w=0.6[aout]"
+    )
+
+    ffmpeg_cmd = [
+        "ffmpeg", "-y",
+        "-ss", "2", "-t", "18",
+        "-i", raw_file,
+        "-filter_complex", filter_complex,
+        "-map", "[vout]", "-map", "[aout]",
+        "-c:v", "libx264", "-preset", "fast", "-crf", "22",
+        "-c:a", "aac", "-b:a", "160k",
+        output_file
+    ]
+    res = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
+
+    # If video had no audio stream, run video-only filter
+    if not os.path.exists(output_file) or os.path.getsize(output_file) < 30000:
+        v_only_filter = (
+            "[0:v]setpts=PTS/1.04,split=2[vtop][vbot];"
+            "[vtop]crop=ih*9/16:ih,scale=720:920,unsharp=5:5:1.2:5:5:0.0,eq=contrast=1.14:saturation=1.28[top_ready];"
+            "[vbot]crop=iw*0.6:ih*0.4,scale=720:360[bot_ready];"
+            f"[top_ready][bot_ready]vstack=inputs=2,ass={ass_file}[vout]"
         )
-    return ai_text, voice_script
+        subprocess.run([
+            "ffmpeg", "-y", "-ss", "2", "-t", "18", "-i", raw_file,
+            "-filter_complex", v_only_filter, "-map", "[vout]",
+            "-c:v", "libx264", "-preset", "fast", "-crf", "22", output_file
+        ], capture_output=True, text=True)
 
-def build_hindi_short_video(vid_id, video_url, voice_script):
-    raw_video = "raw_clip.mp4"
-    voice_mp3 = "hindi_voice.mp3"
-    thumb_jpg = "thumbnail.jpg"
-    final_mp4 = "hindi_viral_short.mp4"
+    return os.path.exists(output_file) and os.path.getsize(output_file) > 30000
 
-    for f in [raw_video, voice_mp3, thumb_jpg, final_mp4]:
-        if os.path.exists(f):
-            os.remove(f)
+def generate_human_hinglish_seo(title):
+    prompt = f"""
+    Aap ek Indian Gen-Z Gaming Content Creator ho (jaise BeastBoyShub / Techno Gamerz ke editors).
+    Video topic: "{title}"
+    
+    STRICT RULES:
+    - Bilkul Devanagari Hindi (भाई लोग) MAT use karna! Sirf Roman Hinglish (English letters mein Hindi) likho.
+    - AI jaisa formal mat likho. Bilkul casual, human-friendly, viral tone rakho.
+    
+    Format:
+    TITLE: (Under 55 chars, casual Hinglish + 2 emojis + #shorts #gta6)
+    CAPTION: (2 punchy Hinglish lines asking a question to boost comments)
+    TAGS: (Top 10 viral tags)
+    PINNED_COMMENT: (1 controversial/engaging Hinglish comment to pin)
+    """
+    seo_text = None
+    try:
+        client = genai.Client(api_key=GEMINI_KEY)
+        r = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
+        if r and r.text:
+            seo_text = r.text
+    except:
+        pass
 
-    # 1. Generate energetic Indian Hindi Male Voiceover using Edge-TTS (100% Free)
-    tts_cmd = [
-        "edge-tts",
-        "--voice", "hi-IN-MadhurNeural",
-        "--rate=+12%",
-        "--text", voice_script,
-        "--write-media", voice_mp3
-    ]
-    subprocess.run(tts_cmd, capture_output=True, text=True)
+    if not seo_text:
+        try:
+            encoded = urllib.parse.quote(prompt)
+            r = requests.get(f"https://text.pollinations.ai/{encoded}", timeout=20)
+            if r.status_code == 200 and len(r.text) > 40:
+                seo_text = r.text
+        except:
+            pass
 
-    # 2. Download High-Res Thumbnail for Custom Thumbnail & Fallback Visual
-    thumb_url = f"https://i.ytimg.com/vi/{vid_id}/maxresdefault.jpg"
-    r = requests.get(thumb_url)
-    if r.status_code != 200:
-        thumb_url = f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg"
-        r = requests.get(thumb_url)
-    with open(thumb_jpg, "wb") as f:
-        f.write(r.content)
-
-    # 3. Try downloading 25-sec clip using Android Player Client Bypass (avoids YouTube datacenter block)
-    dl_cmd = [
-        "yt-dlp", video_url,
-        "--extractor-args", "youtube:player_client=android,web",
-        "--download-sections", "*5-30",
-        "-f", "best[height<=720][ext=mp4]/best[ext=mp4]/best",
-        "-o", raw_video
-    ]
-    subprocess.run(dl_cmd, capture_output=True, text=True)
-
-    if os.path.exists(raw_video) and os.path.getsize(raw_video) > 50000:
-        # Merge downloaded gameplay + Hindi AI Voiceover + 9:16 Vertical Crop + Color Boost
-        ffmpeg_cmd = [
-            "ffmpeg", "-y",
-            "-i", raw_video,
-            "-i", voice_mp3,
-            "-t", "20",
-            "-vf", "crop=ih*9/16:ih,scale=720:1280,eq=saturation=1.2:contrast=1.1",
-            "-filter_complex", "[0:a]volume=0.25[bg];[1:a]volume=1.5[vo];[bg][vo]amix=inputs=2:duration=shortest[aout]",
-            "-map", "0:v", "-map", "[aout]",
-            "-c:v", "libx264", "-preset", "fast", "-crf", "26",
-            "-c:a", "aac", "-b:a", "128k",
-            final_mp4
-        ]
-        subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
-
-    # 4. Guaranteed Fallback: If YouTube blocks cloud IP, create Dynamic 9:16 Zoom-Pan Hindi Short from HD Frame + Hindi Voiceover
-    if not os.path.exists(final_mp4) or os.path.getsize(final_mp4) < 10000:
-        ffmpeg_fallback = [
-            "ffmpeg", "-y",
-            "-loop", "1", "-i", thumb_jpg,
-            "-i", voice_mp3,
-            "-vf", "scale=1280:720,crop=405:720,scale=720:1280,eq=saturation=1.25:contrast=1.1",
-            "-c:v", "libx264", "-t", "16", "-pix_fmt", "yuv420p", "-preset", "fast",
-            "-c:a", "aac", "-b:a", "128k", "-shortest",
-            final_mp4
-        ]
-        subprocess.run(ffmpeg_fallback, capture_output=True, text=True)
-
-    return final_mp4, thumb_jpg
+    if not seo_text:
+        seo_text = (
+            "📌 TITLE:\n"
+            "GTA 5 vs GTA 6 Graphics Evolution is INSANE 💀🔥 #gta6 #shorts\n\n"
+            "📝 INSTAGRAM & YOUTUBE CAPTION:\n"
+            "Bhai Rockstar ne GTA 6 mein detailing kis level pe pahuncha di hai 😳🔥 Last wala part notice kiya kya? Comments mein batao!\n\n"
+            "📌 PINNED COMMENT (Copy-Paste in Comments):\n"
+            "0:09 pe bike aur dog ki physics dekho bhai, real life lag raha hai ya game? 💀👇\n\n"
+            "🏷 VIRAL TAGS:\n"
+            "#gta6 #gtavi #gta6india #indiangaming #gta5vsgta6 #rockstargames #gamingreels #viralshorts #technogamerz #gta6graphics"
+        )
+    return seo_text
 
 def main():
     state = load_state()
@@ -239,29 +279,35 @@ def main():
         save_state(state)
         return
 
-    videos = find_hindi_gta6_videos()
+    videos = find_viral_gta6_shorts()
     for v in videos:
         vid_id = v.get("id")
-        title = v.get("title", "GTA 6 Hindi Clip")
+        title = v.get("title", "GTA 6 Evolution Edit")
         if vid_id and vid_id not in state["processed_videos"]:
             url = f"https://www.youtube.com/watch?v={vid_id}"
-            send_telegram(c_id, f"🇮🇳 Naya Trending Hindi GTA 6 Video Mila!\n🎬 Title: {title}\n🔗 {url}\n\n⏳ Ab main isme Hindi Voiceover, 9:16 Vertical Edit, Custom Thumbnail aur Hindi SEO taiyar kar raha hu...")
-
-            seo_text, voice_script = generate_hindi_script_and_seo(title, url)
-            final_mp4, thumb_jpg = build_hindi_short_video(vid_id, url, voice_script)
-
-            # Send Custom Thumbnail First
-            if os.path.exists(thumb_jpg):
-                send_telegram_photo(c_id, thumb_jpg, f"🖼 Ready Custom Thumbnail (#{state['uploaded_today'] + 1}/{state['daily_target']})")
-
-            # Send Edited 9:16 Hindi Video + SEO Package
-            sent = send_telegram_video(c_id, final_mp4, f"🎬 READY 9:16 HINDI SHORT VIDEO (#{state['uploaded_today'] + 1}/{state['daily_target']})\n\n{seo_text}")
-            if not sent:
-                send_telegram(c_id, seo_text)
-
             state["processed_videos"].append(vid_id)
-            state["uploaded_today"] += 1
-            break
+
+            # Only proceed if REAL moving video downloads (Never send static image!)
+            if download_real_video(vid_id, url, "raw_clip.mp4"):
+                send_telegram(c_id, f"🎬 Real Viral GTA 6 Video Downloaded!\nSource: {title}\n\n⚡ Applying Split-Screen, Sharp HD Filter, Bass Boost & Neon Captions...")
+
+                ok = edit_pro_short(
+                    "raw_clip.mp4",
+                    hook_top="WAIT FOR GTA 6 GRAPHICS",
+                    label_1="GTA V  2013",
+                    label_2="GTA VI 2026",
+                    output_file="pro_viral_short.mp4"
+                )
+
+                seo = generate_human_hinglish_seo(title)
+                if ok:
+                    send_telegram_video(
+                        c_id,
+                        "pro_viral_short.mp4",
+                        f"🔥 PRO EDITED SHORT (#{state['uploaded_today'] + 1}/{state['daily_target']})\n\n{seo}"
+                    )
+                    state["uploaded_today"] += 1
+                    break
 
     save_state(state)
 
