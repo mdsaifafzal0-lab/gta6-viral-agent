@@ -1,6 +1,6 @@
 {
   "chat_id": 7176896605,
-  "active": true,
+  "active": false,
   "daily_target": 10,
   "uploaded_today": 0,
   "processed_videos": [
@@ -22,5 +22,5 @@
     "N-PqsJIJE2c",
     "WZEyIex5naw"
   ],
-  "last_update_id": 882818334
+  "last_update_id": 882818335
 }
